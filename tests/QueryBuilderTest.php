@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\LazyCollection;
 use Jenssegers\Mongodb\Collection;
 use Jenssegers\Mongodb\Query\Builder;
 use MongoDB\BSON\ObjectId;
@@ -779,7 +778,7 @@ class QueryBuilderTest extends TestCase
 
         $results = DB::collection('items')->orderBy('_id', 'asc')->cursor();
 
-        $this->assertInstanceOf(LazyCollection::class, $results);
+        $this->assertInstanceOf(Generator::class, $results);
         foreach ($results as $i => $result) {
             $this->assertEquals($data[$i]['name'], $result['name']);
         }

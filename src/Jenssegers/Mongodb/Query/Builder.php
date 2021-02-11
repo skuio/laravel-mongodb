@@ -8,13 +8,13 @@ use Illuminate\Database\Query\Builder as BaseBuilder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use Jenssegers\Mongodb\Connection;
 use MongoDB\BSON\Binary;
 use MongoDB\BSON\ObjectID;
 use MongoDB\BSON\Regex;
 use MongoDB\BSON\UTCDateTime;
+use MongoDB\Driver\Cursor;
 use RuntimeException;
 
 /**
@@ -219,20 +219,26 @@ class Builder extends BaseBuilder
      */
     public function cursor($columns = [])
     {
-        $result =  $this->getFresh($columns, true);
-        if ($result instanceof LazyCollection) {
-            return $result;
+        $cursor =  $this->getFresh($columns, true);
+
+        if ($cursor instanceof Cursor) {
+            foreach ($cursor as $item){
+                yield $item;
+            }
+        } else {
+            throw new RuntimeException("Query not compatible with cursor");
         }
-        throw new RuntimeException("Query not compatible with cursor");
     }
 
     /**
      * Execute the query as a fresh "select" statement.
+     *
      * @param array $columns
-     * @param bool $returnLazy
-     * @return array|static[]|Collection|LazyCollection
+     * @param bool $returnCursor
+     *
+     * @return array|static[]|Collection|Cursor
      */
-    public function getFresh($columns = [], $returnLazy = false)
+    public function getFresh( $columns = [], $returnCursor = false)
     {
         // If no columns have been specified for the select statement, we will set them
         // here to either the passed columns, or the standard default of retrieving
@@ -356,6 +362,10 @@ class Builder extends BaseBuilder
                 $options = array_merge($options, $this->options);
             }
 
+            if ($returnCursor) {
+                return $this->collection->aggregate($pipeline, $options);
+            }
+
             // Execute aggregation
             $results = iterator_to_array($this->collection->aggregate($pipeline, $options));
 
@@ -420,12 +430,8 @@ class Builder extends BaseBuilder
             // Execute query and get MongoCursor
             $cursor = $this->collection->find($wheres, $options);
 
-            if ($returnLazy) {
-                return LazyCollection::make(function () use ($cursor) {
-                    foreach ($cursor as $item) {
-                        yield $item;
-                    }
-                });
+            if ($returnCursor) {
+                return $cursor;
             }
 
             // Return results as an array with numeric keys
