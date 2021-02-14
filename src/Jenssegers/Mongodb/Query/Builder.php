@@ -2,6 +2,7 @@
 
 namespace Jenssegers\Mongodb\Query;
 
+use Carbon\Carbon;
 use Closure;
 use DateTime;
 use Illuminate\Database\Query\Builder as BaseBuilder;
@@ -1169,6 +1170,31 @@ class Builder extends BaseBuilder
                 '$lte' => $values[1],
             ],
         ];
+    }
+
+    /**
+     * @param array $where
+     * @return array
+     */
+    protected function compileWhereDate(array $where)
+    {
+        switch ($where['operator']) {
+            case '>=':
+            case '<':
+                $where['value'] = new UTCDateTime(Carbon::parse($where['value'])->setTime(0,0)->format('Uv'));
+                return $this->compileWhereBasic($where);
+            case '>':
+            case '<=':
+                $where['value'] = new UTCDateTime(Carbon::parse($where['value'])->setTime(23,59)->format('Uv'));
+                return $this->compileWhereBasic($where);
+            case '=':
+                $where['not'] = false;
+                $where['values'] = [new UTCDateTime(Carbon::parse($where['value'])->setTime(0,0)->format('Uv')), new UTCDateTime(Carbon::parse($where['value'])->setTime(23,59)->format('Uv'))];
+                unset($where['value']);
+                return $this->compileWhereBetween($where);
+        }
+
+        return $this->compileWhereBasic($where);
     }
 
     /**
